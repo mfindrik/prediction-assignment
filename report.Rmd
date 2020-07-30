@@ -1,0 +1,97 @@
+---
+title: 'Prediction Assignment: Practical Machine Learning'
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Objective
+
+For this task the Weight Lifting Exercises (WLE) dataset is used. The WLE dataset is obtained by monitoring people during exercises using devices such as Jawbone Up, Nike FuelBand, and Fitbit. The dataset is used to investigate "how (well)" an activity was performed by the wearer.
+
+The goal of this project is to predict the manner in which people did the exercises. This is the "classe" variable in the training set. The task is to create a prediction model and report describing how the model was built.
+
+## Dataset preprocessing
+
+In order to explore the dataset test and train splits are downloaded from following websites:
+
+ - Train dataset: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+ - Test dataset: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The dataset is created by Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+
+### Downloading train/test datasets
+
+Downloading the dataset and setting the seed for reproducability.
+
+```{r, echo=FALSE}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+
+set.seed(20000)
+
+data_train <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+
+test <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+
+```
+
+### Cleaning dataset
+
+Remove unneccessary variables with near zero variance
+
+```{r}
+
+data_train <- data_train[-(1:7)]
+na_count <-sapply(data_train, function(y) sum(length(which(is.na(y)))))
+na_count <- data.frame(na_count)
+unique(na_count$na_count)
+n <- which(na_count == 19216)
+data_train <- data_train[-n]
+last<-dim(data_train)[2]
+data_train[, -last] <- sapply(data_train[, -last] , function(x) as.numeric(x))
+nsv <- nearZeroVar(data_train[,-last],saveMetrics=TRUE)
+data_train <- data_train[,!nsv$nzv]
+
+```
+
+### Spliting dataset
+
+The dataset is splited into train/validation and testing. Validation set serves for optimizing the algoritm and related parameters.
+
+```{r}
+train <- createDataPartition(y = data_train$classe, p=.75, list = FALSE)
+
+training <- data_train[train,]
+
+validation <- data_train[-train,]
+
+```
+
+
+### Model training
+
+Fit random forest model and estimate the error on validation dataset.
+
+```{r}
+
+fitRF <- randomForest(training$classe ~ ., data=training, ntree=100, na.action = na.roughfix)
+
+predictionRF <- predict(fitRF, validation, type = "class")
+
+confusionMatrix(validation$classe, predictionRF)
+
+```
+
+### Submission predictions
+
+```{r}
+
+predictSubmission <- predict(fitRF, testing, type="class")
+predictSubmission
+
+```
